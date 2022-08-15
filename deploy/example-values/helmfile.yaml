@@ -1,0 +1,34 @@
+repositories: 
+- name: stonks-app
+  url: git+https://github.com/dlpco/helm-chart-stonks-app@repo?ref=main&sparse=0
+
+helmDefaults:
+  tillerless: true
+  wait: true
+  timeout: 120
+  atomic: true
+
+releases:
+  - name: nginx-api
+    namespace: teste-nginx
+    chart: stonks-app/stonks-app
+    values:
+      - values/base.yaml.gotmpl
+  - name: nginx-workers
+    namespace: teste-nginx
+    chart: stonks-app/stonks-app
+    values:
+      - values/base.yaml.gotmpl
+      - extraSelectorLabels:
+          role: workers
+environments:
+  homolog:
+    values:
+      - values/HOMOLOG.yaml
+  sandbox:
+    values:
+      - values/SANDBOX.yaml
+  production:
+    values:
+      - values/PRODUCTION.yaml
+

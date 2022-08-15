@@ -1,0 +1,12 @@
+name: deploy
+
+on:
+  repository_dispatch:
+    types: ["projeto-template:HOMOLOG"]
+
+jobs:
+ deploy-homolog:
+    uses: dlpco/infra-github-workflows/.github/workflows/deploy-app-homolog.yml@main
+    with:
+      tag: ${{ github.event.client_payload.tag }}
+    secrets: inherit

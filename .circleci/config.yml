@@ -1,0 +1,24 @@
+version: 2
+jobs:
+  docker-image:
+    docker:
+      - image: circleci/python:3.8.9
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD $REGISTRY_HOST
+      - run: make docker-build-and-push-image
+      - run: make trigger-deploy
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      - docker-image:
+          context: banking
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: /.*/

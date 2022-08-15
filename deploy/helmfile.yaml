@@ -1,0 +1,50 @@
+repositories: 
+- name: stonks-app
+  url: git+ssh://git@github.com/dlpco/helm-chart-stonks-app@repo?ref=main&sparse=0
+
+helmDefaults:
+#### No need to alter these ####
+#### Default parameters passed to "helm" command
+  tillerless: true
+  wait: true
+  createNamespace: false
+
+###### Set to "false" only while you're migrating from render.sh
+  atomic: true
+
+####### Alter only if your deployment will take longer than 15 minutes
+  timeout: 900
+
+releases:
+  - name: projeto-template
+    namespace: projeto-template
+    values:
+      - values/base.yaml.gotmpl
+    chart: ./charts/stonks-app
+    hooks:
+        - events: ['prepare']
+          command: "rm"
+          args: ["-rf", "./charts/" ]
+        - events: ['prepare']
+          command: "helm"
+          args: ["fetch", "stonks-app/stonks-app", "--untar", "-d", "charts/"]
+        - events: ['prepare']
+          command: "sed"
+          args: ["-i", "-e", "$aappVersion: \"{{`{{ .Values.version }}`}}\"", "charts/stonks-app/Chart.yaml"]
+          # ATTENTION: '$aappVersion' IS NOT A TYPO. It's a sed command ("$a") followed by the string "appVersion"
+          # DO NOT CHANGE
+
+environments:
+  homolog:
+    values:
+      - values/HOMOLOG.yaml
+      - values/version.yaml
+  sandbox:
+    values:
+      - values/SANDBOX.yaml
+      - values/version.yaml
+  production:
+    values:
+      - values/PRODUCTION.yaml
+      - values/version.yaml
+

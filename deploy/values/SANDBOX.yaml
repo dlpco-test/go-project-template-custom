@@ -1,0 +1,5 @@
+replicas: 2
+
+serviceAccount:
+  annotations:
+    test-annotation: sandbox

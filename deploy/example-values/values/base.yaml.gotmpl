@@ -1,0 +1,48 @@
+# Default values for all environments
+# Change as needed according to https://github.com/dlpco/helm-chart-stonks-app/blob/main/values.yaml
+
+imageFull: quay.io/bitnami/nginx:1.21.0
+
+extraSelectorLabels:
+  role: api
+
+configMapMountPath: "/opt/bitnami/nginx/conf/server_blocks/"
+
+configMapFileData:
+  myserver.conf: |-
+    server {
+        listen  3000;
+        location /_health {
+            stub_status on;
+            access_log   off;
+            allow all;
+        }
+        location /_ready {
+            stub_status on;
+            access_log   off;
+            allow all;
+        }
+    }
+
+serviceAccount:
+  create: true
+  annotations:
+    serviceAccountNote: teste
+
+extraMounts:
+  volumeMounts:
+    - name: conta-stone-pem
+      mountPath: "/etc/credit"
+      readOnly: true
+  volumes:
+    - name: conta-stone-pem
+      secret:
+        items:
+          - key: conta-stone-pem
+            path: conta-stone.pem
+        secretName: conta-stone
+
+# Environment specific configurations (ex: resources)
+# Will superseed default values above
+
+{{ toYaml .Environment.Values }}

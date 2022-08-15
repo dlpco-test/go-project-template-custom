@@ -1,0 +1,20 @@
+name: release
+
+on:
+  repository_dispatch:
+    types: ["projeto-template:PRODUCTION"]
+    
+jobs:
+  deploy-sandbox:
+    uses: dlpco/infra-github-workflows/.github/workflows/deploy-app-sandbox.yml@main
+    with:
+      tag: ${{ github.event.client_payload.tag }}
+    secrets: inherit
+  
+  deploy-production:
+    needs: [deploy-sandbox]
+    uses: dlpco/infra-github-workflows/.github/workflows/deploy-app-production.yml@main
+    with:
+      tag: ${{ github.event.client_payload.tag }}
+    secrets: inherit
+  

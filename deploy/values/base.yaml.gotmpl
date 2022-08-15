@@ -1,0 +1,11 @@
+# Environment specific configurations (ex: resources)
+# Can be merged with values below when necessary
+
+{{ toYaml .Environment.Values }}
+
+# Default values for all environments
+# Add as needed according to https://github.com/dlpco/helm-chart-stonks-app/blob/main/values.yaml
+
+serviceAccount:
+  create: true
+  {{ toYaml .Environment.Values.serviceAccount | nindent 2 }}

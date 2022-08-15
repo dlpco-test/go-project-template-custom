@@ -1,0 +1,3 @@
+# Must be kept for local tests. Will be overwritten by github actions 
+version: main
+commit: teste-local

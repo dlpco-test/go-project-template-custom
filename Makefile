@@ -1,146 +1,58 @@
-NAME=go-project-template
-NAME_API=$(NAME)-api
-NAME_WORKER=$(NAME)-worker
-VERSION=dev
-OS ?= linux
-PROJECT_PATH ?= github.com/dlpco/$(NAME)
-PKG ?= github.com/dlpco/$(NAME)/cmd
-REGISTRY ?= dlpco
-TERM=xterm-256color
-CLICOLOR_FORCE=true
-GIT_COMMIT=$(shell git rev-parse HEAD)
-GIT_BUILD_TIME=$(shell date '+%Y-%m-%d__%I:%M:%S%p')
-
-define goBuild
-	@echo "==> Go Building $2"
-	@env GOOS=${OS} GOARCH=amd64 go build -v -o  build/$1 \
-	-ldflags "-X main.BuildGitCommit=$(GIT_COMMIT) -X main.BuildTime=$(GIT_BUILD_TIME) -X main.BuildGitTAG=$(TAG)" \
-	${PKG}/$2
-endef
-
-.PHONY: download
-download:
-	@echo "==> Downloading go.mod dependencies"
-	@go mod download
-
-.PHONY: install-tools
-install-tools: download
-	@echo "==> Installing tools from tools/tools.go"
-	@cat tools/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
-
-.PHONY: install-golangci-lint
-install-golangci-lint:
-ifeq (, $(shell which $$(go env GOPATH)/bin/golangci-lint))
-	@echo "Installing golangci-lint"
-	@curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin
-endif
-
-.PHONY: setup
-setup: install-tools install-golangci-lint
-	@go mod tidy
-
-.PHONY: lint
-lint:
-	@echo "==> Running golangci-lint"
-	@golangci-lint run --fix
-
-.PHONY: test
-test:
-	@echo "==> Running tests"
-	@gotest -race -failfast ./...
-
-.PHONY: test-coverage
-test-coverage:
-	@echo "==> Running tests with coverage"
-	@gotest -race -failfast -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-
-.PHONY: generate
-generate:
-	@echo "Running go generate"
-	@go generate ./...
-
-.PHONY: compile
-compile: clean
-	@echo "==> Compiling project"
-	$(call goBuild,${NAME_API},api)
-	$(call goBuild,${NAME_WORKER},worker)
-
-.PHONY: build
-build: compile
-	@echo "==> Building Docker API image"
-	@docker build -t ${REGISTRY}/${NAME_API}:${VERSION} build -f build/api.dockerfile
-	@echo "==> Building Docker worker image"
-	@docker build -t ${REGISTRY}/${NAME_WORKER}:${VERSION} build -f build/worker.dockerfile
-
-.PHONY:
-push:
-	@echo "==> Pushing API image to registry"
-	@docker push ${REGISTRY}/${NAME_API}:${VERSION}
-	@echo "==> Pushing worker image to registry"
-	@docker push ${REGISTRY}/${NAME_WORKER}:${VERSION}
-
-.PHONY: clean
-clean:
-	@echo "==> Cleaning releases"
-	@GOOS=${OS} go clean -i -x ./...
-	@rm -f build/${NAME_API}
-	@rm -f build/${NAME_WORKER}
-
 ############################
-# BUILD AND DEPLOY TARGETS #
+# Build and Deploy targets #
 ############################
 
-VCS_REF = $(if $(GITHUB_SHA),$(GITHUB_SHA),$(shell git rev-parse HEAD))
-TAG ?= $(subst  /,-,$(if $(RELEASE_VERSION),$(RELEASE_VERSION),$(if $(GITHUB_HEAD_REF),$(GITHUB_HEAD_REF),$(shell git rev-parse --abbrev-ref HEAD))))
-TRIGGER_KIND ?= $(if $(RELEASE_VERSION),PRODUCTION,HOMOLOG)
+#change to the actual project name
+PROJECT = projeto-template
+#change to the actual project name
+RELEASE = projeto-template
+
+VCS_REF = $(if $(CIRCLE_SHA1),$(CIRCLE_SHA1),$(shell git rev-parse HEAD))
+TAG ?= $(subst  /,-,$(if $(CIRCLE_TAG),$(CIRCLE_TAG),$(if $(CIRCLE_BRANCH),$(CIRCLE_BRANCH),$(shell git rev-parse --abbrev-ref HEAD))))
+TRIGGER_KIND ?= $(if $(CIRCLE_TAG),PRODUCTION,HOMOLOG)
 REGISTRY_PREFIX ?= stonebankingregistry347.azurecr.io/
-PROJECT = go-project-template
-IMAGE = $(REGISTRY_PREFIX)dlpco/$(PROJECT)
-TAGS = SANDBOX PRODUCTION
-STATUS_CODE := $(shell curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Basic $(VSTS_AUTH)" -H "Content-Type: application/json" "https://stone-banking.vsrm.visualstudio.com/$(PROJECT)/_apis/release/releases?api-version=4.1-preview.6")
+IMAGE = $(REGISTRY_PREFIX)dlpco/$(RELEASE)
 
-.PHONY: create-deploy-artifact
-create-deploy-artifact:
-	rm -rf deploy/rendered dist; \
-	if [ $(TAG) != "main" ]; then \
-		for tag in $(TAGS); do \
-			TRIGGER_KIND="$${tag}"; \
-			env TAG=$(TAG) PROJECT=$(PROJECT) REGISTRY_PREFIX=${REGISTRY_PREFIX} TRIGGER_KIND=$$TRIGGER_KIND ./deploy/render.sh; \
-			mkdir -p dist || true; \
-			tar -C deploy -czf dist/$$TRIGGER_KIND:$(TAG).tar.gz rendered; \
-		done; \
-	else \
-		TRIGGER_KIND="HOMOLOG"; \
-		env TAG=$(TAG) PROJECT=$(PROJECT) REGISTRY_PREFIX=${REGISTRY_PREFIX} TRIGGER_KIND=$$TRIGGER_KIND ./deploy/render.sh; \
-		mkdir -p dist || true; \
-		tar -C deploy -czf dist/$$TRIGGER_KIND:$(TAG).tar.gz rendered; \
-	fi;
+#For Elixir's projects
+HEX_STONE_URL ?= $(if $(CIRCLECI),https://$(HEX_STONE_USER):$(HEX_STONE_PASS)@$(HEX_STONE_HOST),https://hex-stone.sandbox.stone.credit)
 
-.PHONY: upload-deploy-artifact
-upload-deploy-artifact:
-	for artifacts in dist/*; do \
-		az storage blob upload \
-		--container-name artifacts \
-		--name stone-payments/$(PROJECT)/$${artifacts##*/} \
-		--file $${artifacts}; \
-	done;
+.PHONY: deploy
+deploy: 
+	@cd deploy; helmfile -e $(ENVIRONMENT) apply
 
-.PHONY: create-and-upload-deploy-artifact
-create-and-upload-deploy-artifact: create-deploy-artifact upload-deploy-artifact
+.PHONY: diff
+diff: 
+	@cd deploy; helmfile -e $(ENVIRONMENT) diff
+
+# For ELixir-s projects add the flag "--build-arg HEX_STONE_URL=$(HEX_STONE_URL)" to the 'docker image build' command:
+# .PHONY: docker-image
+# docker-image:
+# 	docker image build \
+# 		--pull \
+# 		--tag $(IMAGE):$(TAG) \
+# 		--label "stone.banking.vcs-ref=$(VCS_REF)" \
+# 		--build-arg HEX_STONE_URL=$(HEX_STONE_URL) \
+# 		.
+
+.PHONY: docker-image
+docker-image:
+	docker image build \
+		--pull \
+		--tag $(IMAGE):$(TAG) \
+		--label "stone.banking.vcs-ref=$(VCS_REF)" \
+		.
+
+.PHONY: docker-push
+docker-push:
+	docker image push $(IMAGE):$(TAG)
+
+.PHONY: docker-build-and-push-image
+docker-build-and-push-image: docker-image docker-push
 
 .PHONY: trigger-deploy
 trigger-deploy:
-ifndef VSTS_AUTH
-	$(error "Missing VSTS_AUTH environment variable")
-endif
-
-ifneq ($(STATUS_CODE), $(filter $(STATUS_CODE),200 302))
-    $(error "Can't trigger deploy. HTTP Error: $(STATUS_CODE)")
-endif
-
-	curl -f -X POST \
-	-H "Authorization: Basic $(VSTS_AUTH)" \
-	-H "Content-Type: application/json" \
-	-d '{ "description": "$(TRIGGER_KIND):$(TAG)", "definitionId": 1, "reason": "continuousIntegration" }' \
-	"https://stone-banking.vsrm.visualstudio.com/$(PROJECT)/_apis/release/releases?api-version=4.1-preview.6"
+	curl -H "Accept: application/vnd.github.everest-preview+json" \
+	-H "Authorization: token $(BANKING_BOT_GITHUB_TOKEN)" \
+	--request POST \
+	--data '{"event_type": "$(PROJECT):$(TRIGGER_KIND)", "client_payload": {"tag": "$(TAG)"}' \
+	https://api.github.com/repos/dlpco/$(PROJECT)/dispatches
