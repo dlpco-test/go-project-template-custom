@@ -11,8 +11,8 @@
 *.dll
 *.so
 *.dylib
-/build/go-project-template-api
-/build/go-project-template-worker
+/build/*-api
+/build/*-worker
 
 # helmfile render.sh script output
 /deploy/rendered
