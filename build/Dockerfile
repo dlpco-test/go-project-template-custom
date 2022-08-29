@@ -17,7 +17,7 @@ RUN --mount=type=ssh go mod download
 
 COPY cmd ./cmd
 COPY docs ./docs
-COPY auto-test-1 ./auto-test-1
+COPY go-project-template ./go-project-template
 
 ARG BUILD_TIME
 ARG GIT_COMMIT
