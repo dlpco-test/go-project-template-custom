@@ -72,7 +72,7 @@ func healthyRobot() {
 	http.HandleFunc("/_ready", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "I am ready :)\n")
 	})
-	http.HandleFunc("/_healthy", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/_health", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "I am healthy.. have been drinking enough oil :)\n")
 	})
 	fmt.Println("Listening to peeky pokers")
